@@ -1,81 +1,165 @@
-import * as vscode from "vscode";
+import * as vscode from "vscode"; 
 
 import { scanDocument } from "./services/scanner";
 import { createHoverProvider } from "./hover/hoverProvider";
 import { Vulnerability } from "./models/vulnerability";
 
-// Store current vulnerabilities globally
+const SUPPORTED_LANGUAGES = ['typescript', 'javascript'];
+ 
+// Global variable that stores the current vulnerabilities found in the active document
 let currentVulnerabilities: Vulnerability[] = [];
-
+ 
+// Main function that runs when the extension is activated
 export function activate(context: vscode.ExtensionContext) {
-  console.log("Security Scanner Active");
 
-  // Create diagnostics collection
-  const diagnosticCollection =
-    vscode.languages.createDiagnosticCollection("security-scanner");
+  // Message shown in the VS Code development console
+  console.log("SecureLint: Security Scanner Active");
+ 
+  // Collection of diagnostics (warnings, errors, info) that will appear in the editor
+  const diagnosticCollection = vscode.languages.createDiagnosticCollection("securelint");
 
-  // Main function to analyze the current document
+  // Registered so VS Code can dispose it automatically
+  context.subscriptions.push(diagnosticCollection);
+ 
+  /**
+   * Function responsible for analyzing an open document
+   * and generating security diagnostics.
+   */
   function analyzeDocument(editor: vscode.TextEditor) {
+
+    // Get the language of the current file
+    const langId = editor.document.languageId;
+ 
+    // If the language is not supported:
+    // - remove previous diagnostics
+    // - stop execution
+    if (!SUPPORTED_LANGUAGES.includes(langId)) {
+      diagnosticCollection.delete(editor.document.uri);
+      return;
+    }
+ 
+    // Get the full text of the file
     const text = editor.document.getText();
 
-    // Scan document for vulnerabilities
-    currentVulnerabilities = scanDocument(text);
+    // Scan the document and store found vulnerabilities
+    currentVulnerabilities = scanDocument(text, langId);
+ 
+    // Convert each vulnerability into a VS Code Diagnostic
+    const diagnostics: vscode.Diagnostic[] = currentVulnerabilities.map(vuln => {
 
-    console.log(currentVulnerabilities);
+      // Get the line where the vulnerability was detected
+      const line = editor.document.lineAt(vuln.line);
 
-    const diagnostics: vscode.Diagnostic[] = [];
-
-    currentVulnerabilities.forEach((vulnerability) => {
-      const line = editor.document.lineAt(vulnerability.line);
-
-      // Create range for the entire line
+      // Define the full range of the line to highlight it in the editor
       const range = new vscode.Range(
-        vulnerability.line,
-        0,
-        vulnerability.line,
-        line.text.length,
+        vuln.line, 
+        0, 
+        vuln.line, 
+        line.text.length
       );
+ 
+      // Define the severity level of the diagnostic
+      let severity: vscode.DiagnosticSeverity;
 
-      // Default severity
-      let severity = vscode.DiagnosticSeverity.Warning;
+      switch (vuln.severity) {
 
-      // High severity vulnerabilities become errors
-      if (vulnerability.severity === "HIGH") {
-        severity = vscode.DiagnosticSeverity.Error;
+        // High severity → Error
+        case 'HIGH':
+          severity = vscode.DiagnosticSeverity.Error;
+          break;
+
+        // Medium severity → Warning
+        case 'MEDIUM':
+          severity = vscode.DiagnosticSeverity.Warning;
+          break;
+
+        // Low severity → Information
+        default:
+          severity = vscode.DiagnosticSeverity.Information;
+          break;
       }
-
-      // Create diagnostic object
+ 
+      // Create the diagnostic that will appear in the editor
       const diagnostic = new vscode.Diagnostic(
         range,
-        `${vulnerability.type}: ${vulnerability.message}`,
-        severity,
+        `[SecureLint] ${vuln.type}: ${vuln.message}`,
+        severity
       );
-
-      diagnostics.push(diagnostic);
+ 
+      return diagnostic;
     });
-
-    // Display diagnostics in editor
+ 
+    // Associate all diagnostics with the current document
     diagnosticCollection.set(editor.document.uri, diagnostics);
   }
-
-  // Register hover provider ONLY once
-  const hoverProvider = createHoverProvider(() => currentVulnerabilities);
-
-  context.subscriptions.push(hoverProvider);
-
-  // Analyze currently opened document
+ 
+  // ==============================
+  // HOVER PROVIDER REGISTRATION
+  // ==============================
+  // Allows showing information when hovering over
+  // a line with vulnerabilities
+  context.subscriptions.push(
+    createHoverProvider(() => currentVulnerabilities)
+  );
+ 
+  // ==============================
+  // ANALYZE ON FILE OPEN
+  // ==============================
+  // If an editor is already active when the extension starts,
+  // analyze it automatically
   if (vscode.window.activeTextEditor) {
     analyzeDocument(vscode.window.activeTextEditor);
   }
+ 
+  // ==============================
+  // ANALYZE ON TAB CHANGE
+  // ==============================
+  // Every time the user switches files,
+  // the analysis is re-run
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor(editor => {
+      if (editor) {
+        analyzeDocument(editor);
+      }
+    })
+  );
+ 
+  // ==========================================
+  // ANALYZE ON TEXT CHANGE (DEBOUNCE)
+  // ==========================================
+  // Prevents running analysis on every keystroke.
+  // Waits 500ms after the last change.
+  let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
-  // Re-analyze document whenever text changes
-  vscode.workspace.onDidChangeTextDocument(() => {
-    const editor = vscode.window.activeTextEditor;
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeTextDocument(event => {
 
-    if (editor) {
-      analyzeDocument(editor);
-    }
-  });
+      // Get the active editor
+      const editor = vscode.window.activeTextEditor;
+
+      // Ensure the change belongs to the current document
+      if (editor && event.document === editor.document) {
+
+        // Reset the timer
+        clearTimeout(debounceTimer);
+
+        // Run analysis after 500ms of no changes
+        debounceTimer = setTimeout(() => analyzeDocument(editor), 500);
+      }
+    })
+  );
+ 
+  // ==========================================
+  // CLEAR DIAGNOSTICS ON FILE CLOSE
+  // ==========================================
+  context.subscriptions.push(
+    vscode.workspace.onDidCloseTextDocument(doc => {
+
+      // Remove diagnostics from closed file
+      diagnosticCollection.delete(doc.uri);
+    })
+  );
 }
-
+ 
+// Function that runs when the extension is deactivated
 export function deactivate() {}
