@@ -15,7 +15,7 @@ const SQL_KEYWORDS = [
 
 /**
  * Patterns that detect SQL Injection vulnerabilities
- * in a single line.
+ * in a single line for JS/TS.
  * 
  * Each pattern contains:
  * - regex: detection regular expression
@@ -23,7 +23,7 @@ const SQL_KEYWORDS = [
  * - message: description of the issue
  * - recommendation: suggested fix
  */
-const singleLinePatterns = [
+const jsSingleLinePatterns = [
 
   // ==============================
   // Dangerous template literals
@@ -64,7 +64,7 @@ const singleLinePatterns = [
   // execute("SELECT ...")
   // ======================================
   {
-    regex: /execute\s*\(\s*["'`]/gi,
+    regex: /execute\s*\(\s*["'`].*?["'`]\s*\)/gi,
 
     message:
       'Potential SQL injection: Execute with string literal',
@@ -88,17 +88,59 @@ const singleLinePatterns = [
 ];
 
 /**
+ * Patterns that detect SQL Injection vulnerabilities
+ * in Python.
+ */
+const pythonSingleLinePatterns = [
+  // ==============================
+  // Dangerous f-strings
+  // ==============================
+  // Detects:
+  // f"SELECT * FROM users WHERE id={user_id}"
+  {
+    regex: /f["'][^"']*\{[^}]*\}[^"']*["']/gi,
+    context: SQL_KEYWORDS,
+    message: 'Potential SQL injection: Using f-strings to build SQL queries.',
+    recommendation: 'Use database parameterized queries (e.g., cursor.execute("... %s", (user_id,)))'
+  },
+
+  // ==========================================
+  // String concatenation in SQL queries
+  // ==========================================
+  // Detects:
+  // "SELECT * FROM " + table_name
+  {
+    regex: /(["']\s*\+\s*\w+)|(\w+\s*\+\s*["'])/gi,
+    context: SQL_KEYWORDS,
+    message: 'Potential SQL injection: String concatenation in SQL query.',
+    recommendation: 'Use parameterized queries instead of string concatenation.'
+  },
+
+  // ======================================
+  // execute("SELECT ...")
+  // ======================================
+  // Detects:
+  // cursor.execute("DELETE FROM users")
+  {
+    regex: /execute\s*\(\s*["'][^"']*["']\s*\)/gi,
+    message: 'Potential SQL injection: Execute with string literal.',
+    recommendation: 'Use parameterized queries instead of executing raw strings.'
+  }
+];
+
+/**
  * Analyzes the text searching for SQL Injection vulnerabilities.
  */
-export function detectSQLInjection(
-  text: string
-): Vulnerability[] {
+export function detectSQLInjection(text: string, languageId: string): Vulnerability[] {
 
   // Array where detected vulnerabilities are stored
   const vulnerabilities: Vulnerability[] = [];
 
   // Splits the document into lines
   const lines = text.split('\n');
+
+  // Decide which rules to use based on the language
+  const singleLinePatterns = languageId === 'python' ? pythonSingleLinePatterns : jsSingleLinePatterns;
 
   lines.forEach((line, index) => {
 

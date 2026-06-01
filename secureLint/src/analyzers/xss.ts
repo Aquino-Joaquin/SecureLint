@@ -9,7 +9,7 @@ import { Vulnerability } from "../models/vulnerability";
  * - message: descriptive message
  * - recommendation: suggestion to fix the issue
  */
-const patterns = [
+const jsPatterns = [
 
   // Detects usage of innerHTML
   {
@@ -71,9 +71,47 @@ const patterns = [
 ];
 
 /**
+ * Patterns that detect XSS and Code Injection vulnerabilities in Python.
+ */
+const pythonPatterns = [
+  // Detects eval()
+  {
+    regex: /(?<![\w\.])eval\s*\(/gi,
+    severity: 'HIGH' as const,
+    message: 'Potential XSS: eval() usage detected',
+    recommendation: 'Avoid eval(); use ast.literal_eval() for safe evaluation.'
+  },
+  
+  // Detects exec()
+  {
+    regex: /(?<![\w\.])exec\s*\(/gi,
+    severity: 'HIGH' as const,
+    message: 'Potential XSS: exec() usage detected',
+    recommendation: 'Avoid exec(); it executes arbitrary strings as Python code.'
+  },
+
+  // Detects Jinja2/Django safe filters which bypass XSS protections
+  // Example: {{ user_input | safe }}
+  {
+    regex: /\|\s*safe\b/gi,
+    severity: 'MEDIUM' as const,
+    message: 'Potential XSS: Usage of "|safe" filter detected in template.',
+    recommendation: 'Ensure the variable passed to "|safe" is strictly sanitized.'
+  },
+
+  // Detects Django's mark_safe()
+  {
+    regex: /mark_safe\s*\(/gi,
+    severity: 'MEDIUM' as const,
+    message: 'Potential XSS: Usage of mark_safe() detected.',
+    recommendation: 'Ensure the content passed to mark_safe() is strictly sanitized.'
+  }
+];
+
+/**
  * Analyzes the file text searching for XSS vulnerabilities.
  */
-export function detectXSS(text: string): Vulnerability[] {
+export function detectXSS(text: string, languageId: string): Vulnerability[] {
 
   // Array where detected vulnerabilities will be stored
   const vulnerabilities: Vulnerability[] = [];
@@ -81,11 +119,14 @@ export function detectXSS(text: string): Vulnerability[] {
   // Splits the document into lines
   const lines = text.split('\n');
 
+  // Decide which rules to use based on the language
+  const activePatterns = languageId === 'python' ? pythonPatterns : jsPatterns;
+
   // Iterates over each line of the file
   lines.forEach((line, index) => {
 
     // Iterates over all defined patterns
-    patterns.forEach(pattern => {
+    activePatterns.forEach(pattern => {
 
       // Resets regex internal state (important when using /g)
       pattern.regex.lastIndex = 0;

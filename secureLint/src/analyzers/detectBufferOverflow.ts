@@ -9,7 +9,7 @@ import { Vulnerability } from "../models/vulnerability";
  * - message: descriptive message explaining the problem
  * - recommendation: suggested fix to avoid the vulnerability
  */
-const patterns = [
+const jsPatterns = [
 
   // Detects usage of Buffer.allocUnsafe()
   {
@@ -21,9 +21,32 @@ const patterns = [
 ];
 
 /**
+ * Python patterns for Buffer Overflow.
+ * Standard Python is memory-safe, but the `ctypes` library 
+ * exposes raw C memory management which can cause overflows.
+ */
+const pythonPatterns = [
+  // Detects raw memory allocation
+  {
+    regex: /ctypes\.create_string_buffer\s*\(/gi,
+    severity: 'MEDIUM' as const,
+    message: 'Potential memory risk: ctypes exposes raw, unmanaged C memory.',
+    recommendation: 'Avoid ctypes unless strictly necessary for C integrations. Use native bytearrays.'
+  },
+  
+  // Detects manual memory moving (Classic C Buffer Overflow vector)
+  {
+    regex: /ctypes\.memmove\s*\(/gi,
+    severity: 'HIGH' as const,
+    message: 'Potential Buffer Overflow: memmove bypasses Python memory safety.',
+    recommendation: 'Do not manually move memory blocks. Rely on standard Python assignment.'
+  }
+];
+
+/**
  * Analyzes the given text searching for buffer overflow vulnerabilities.
  */
-export function detectBufferOverflow(text: string): Vulnerability[] {
+export function detectBufferOverflow(text: string, languageId: string): Vulnerability[] {
 
   // Array where detected vulnerabilities will be stored
   const vulnerabilities: Vulnerability[] = [];
@@ -31,11 +54,14 @@ export function detectBufferOverflow(text: string): Vulnerability[] {
   // Split the document into individual lines
   const lines = text.split('\n');
 
+  // Decide which rules to use based on the language
+  const activePatterns = languageId === 'python' ? pythonPatterns : jsPatterns;
+
   // Iterate over each line of the file
   lines.forEach((line, index) => {
 
     // Iterate over all defined patterns
-    patterns.forEach(pattern => {
+    activePatterns.forEach(pattern => {
 
       // Reset regex internal state (important when using /g)
       pattern.regex.lastIndex = 0;

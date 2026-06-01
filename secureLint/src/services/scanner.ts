@@ -4,7 +4,7 @@ import { detectBufferOverflow } from "../analyzers/detectBufferOverflow";
 import { Vulnerability } from "../models/vulnerability";
  
 // List of languages supported by the scanner
-const SUPPORTED_LANGUAGES = ['typescript', 'javascript', 'ts', 'js'];
+const SUPPORTED_LANGUAGES = ['typescript', 'javascript', 'python', 'py', 'ts', 'js'];
  
 /**
  * Analyzes a full document and returns
@@ -26,13 +26,13 @@ export function scanDocument(
   const results: Vulnerability[] = [
 
     // Detects possible SQL Injection vulnerabilities
-    ...detectSQLInjection(text),
+    ...detectSQLInjection(text, languageId),
 
     // Detects XSS vulnerabilities
-    ...detectXSS(text),
+    ...detectXSS(text, languageId),
 
     // Detects possible Buffer Overflow vulnerabilities
-    ...detectBufferOverflow(text),
+    ...detectBufferOverflow(text, languageId),
   ];
  
   // Removes duplicate vulnerabilities

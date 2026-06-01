@@ -24,7 +24,8 @@ export function createHoverProvider(
   // Defines the languages where the hover will work
   const selector = [
     { language: 'typescript' },
-    { language: 'javascript' }
+    { language: 'javascript' },
+    { language: 'python'}
   ];
  
   // Registers the hover provider in VS Code

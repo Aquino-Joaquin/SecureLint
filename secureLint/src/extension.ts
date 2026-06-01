@@ -4,7 +4,7 @@ import { scanDocument } from "./services/scanner";
 import { createHoverProvider } from "./hover/hoverProvider";
 import { Vulnerability } from "./models/vulnerability";
 
-const SUPPORTED_LANGUAGES = ['typescript', 'javascript'];
+const SUPPORTED_LANGUAGES = ['typescript', 'javascript', 'python'];
  
 // Global variable that stores the current vulnerabilities found in the active document
 let currentVulnerabilities: Vulnerability[] = [];
