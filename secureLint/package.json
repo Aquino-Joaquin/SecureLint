@@ -1,7 +1,7 @@
 {
-  "name": "testing",
-  "displayName": "testing",
-  "description": "safd",
+  "name": "secure-lint",
+  "displayName": "SecureLint",
+  "description": "Static security analysis for JavaScript, TypeScript, and Python.",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.120.0"
@@ -10,7 +10,9 @@
     "Other"
   ],
   "activationEvents": [
-    "*"
+    "onLanguage:javascript",
+    "onLanguage:typescript",
+    "onLanguage:python"
   ],
   "main": "./out/extension.js",
   "contributes": {
