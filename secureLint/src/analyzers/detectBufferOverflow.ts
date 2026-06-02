@@ -3,7 +3,7 @@ import {
   jsBufferOverflowRules,
   pythonBufferOverflowRules,
 } from "../rules/bufferOverflowRules";
-
+import { isComment } from "../services/utils";
 /**
  * Analyzes the given text searching for buffer overflow vulnerabilities.
  */
@@ -23,6 +23,11 @@ export function detectBufferOverflow(
 
   // Iterate over each line of the file
   lines.forEach((line, index) => {
+    // Skip the line if it's a comment before executing regex rules
+    if (isComment(line, languageId)) {
+      return;
+    }
+
     // Iterate over all defined patterns
     activePatterns.forEach((pattern) => {
       // Reset regex internal state (important when using /g)

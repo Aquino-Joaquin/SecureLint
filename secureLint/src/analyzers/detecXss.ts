@@ -1,6 +1,6 @@
 import { Vulnerability } from "../models/vulnerability";
 import { pythonXSSRules, jsXSSRules } from "../rules/xssRules";
-
+import { isComment } from "../services/utils";
 /**
  * Analyzes the file text searching for XSS vulnerabilities.
  */
@@ -16,6 +16,10 @@ export function detectXSS(text: string, languageId: string): Vulnerability[] {
 
   // Iterates over each line of the file
   lines.forEach((line, index) => {
+    // Skip the line if it's a comment before executing regex rules
+    if (isComment(line, languageId)) {
+      return;
+    }
     // Iterates over all defined patterns
     activePatterns.forEach((pattern) => {
       // Resets regex internal state (important when using /g)

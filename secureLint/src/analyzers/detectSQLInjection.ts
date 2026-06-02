@@ -1,5 +1,6 @@
 import { Vulnerability } from "../models/vulnerability";
 import { jsSQLRules, pythonSQLRules } from "../rules/sqlInjectionRules";
+import { isComment } from "../services/utils";
 /**
  * Analyzes the text searching for SQL Injection vulnerabilities.
  */
@@ -18,6 +19,11 @@ export function detectSQLInjection(
     languageId === "python" ? pythonSQLRules : jsSQLRules;
 
   lines.forEach((line, index) => {
+    // Skip the line if it's a comment before executing regex rules
+    if (isComment(line, languageId)) {
+      return;
+    }
+
     // Iterates over all defined patterns
     singleLinePatterns.forEach((pattern) => {
       // Resets regex internal state (important when using /g)
