@@ -17,41 +17,34 @@ export const SQL_KEYWORDS = [
  * SQL Injection detection rules for JavaScript and TypeScript.
  */
 export const jsSQLRules: DetectionRule[] = [
-  // Dangerous template literals
-  // e.g., `SELECT * FROM users WHERE id = ${userId}`
   {
-    regex: /(\$\{|`[^`]*\$\{[^`]*\}`)/gi,
+    regex: /`[\s\S]*?\$\{[\s\S]*?\}[\s\S]*?`/gi,
     context: SQL_KEYWORDS,
     severity: "HIGH",
-    message: "Potential SQL injection: Template literal in SQL query",
+    message:
+      "Potential SQL injection: Template literal interpolation in SQL query.",
     recommendation:
-      "Use parameterized queries or prepared statements instead of string interpolation",
+      "Use parameterized queries or prepared statements instead of string interpolation.",
   },
 
-  // String concatenation in SQL queries
-  // e.g., "SELECT * FROM users WHERE id=" + userId
   {
-    regex: /["'`][^"'`]*["'`]\s*\+\s*\w+|\w+\s*\+\s*["'`][^"'`]*["'`]/gi,
+    regex:
+      /(["'`])[\s\S]*?\1\s*\+\s*[^"'\d\s]|[^"'\d\s]\s*\+\s*(["'`])[\s\S]*?\2/gi,
     context: SQL_KEYWORDS,
     severity: "HIGH",
-    message: "Potential SQL injection: String concatenation in SQL query",
-    recommendation: "Use parameterized queries instead of string concatenation",
+    message:
+      "Potential SQL injection: String concatenation detected in SQL query.",
+    recommendation:
+      "Use parameterized queries instead of string concatenation.",
   },
 
-  // execute("SELECT ...")
   {
-    regex: /execute\s*\(\s*["'`].*?["'`]\s*\)/gi,
+    regex: /(?:execute|query)\s*\(\s*(?![ "'`\d(])\w+/gi,
     severity: "HIGH",
-    message: "Potential SQL injection: Execute with string literal",
-    recommendation: "Validate and sanitize all inputs before executing queries",
-  },
-
-  // query(`SELECT ${userInput}`)
-  {
-    regex: /query\s*\(\s*["'`].*\$\{/gi,
-    severity: "HIGH",
-    message: "Potential SQL injection: Query with template literal",
-    recommendation: "Use parameterized queries instead of string interpolation",
+    message:
+      "Potential SQL injection: Executing a raw variable directly without parameters.",
+    recommendation:
+      "Ensure the variable passed is a safely parameterized query or use prepared statements.",
   },
 ];
 
@@ -59,21 +52,18 @@ export const jsSQLRules: DetectionRule[] = [
  * SQL Injection detection rules for Python.
  */
 export const pythonSQLRules: DetectionRule[] = [
-  // Dangerous f-strings
-  // e.g., f"SELECT * FROM users WHERE id={user_id}"
   {
-    regex: /f["'][^"']*\{[^}]*\}[^"']*["']/gi,
+    regex: /f(["'])[\s\S]*?\{[\s\S]*?\}[\s\S]*?\1/gi,
     context: SQL_KEYWORDS,
     severity: "HIGH",
     message: "Potential SQL injection: Using f-strings to build SQL queries.",
     recommendation:
-      'Use database parameterized queries (e.g., cursor.execute("... %s", (user_id,)))',
+      "Use database parameterized queries (e.g., cursor.execute('... %s', (user_id,))).",
   },
 
-  // String concatenation in SQL queries
-  // e.g., "SELECT * FROM " + table_name
   {
-    regex: /(["']\s*\+\s*\w+)|(\w+\s*\+\s*["'])/gi,
+    regex:
+      /(["'])[\s\S]*?\1\s*\+\s*[^"'\d\s]|[^"'\d\s]\s*\+\s*(["'])[\s\S]*?\2/gi,
     context: SQL_KEYWORDS,
     severity: "HIGH",
     message: "Potential SQL injection: String concatenation in SQL query.",
@@ -81,13 +71,23 @@ export const pythonSQLRules: DetectionRule[] = [
       "Use parameterized queries instead of string concatenation.",
   },
 
-  // execute("SELECT ...")
-  // e.g., cursor.execute("DELETE FROM users")
   {
-    regex: /execute\s*\(\s*["'][^"']*["']\s*\)/gi,
+    regex:
+      /(["'])[\s\S]*?%[sd]\1\s*%\s*[^"'\s]|(["'])[\s\S]*?\2\.format\s*\(/gi,
+    context: SQL_KEYWORDS,
     severity: "HIGH",
-    message: "Potential SQL injection: Execute with string literal.",
+    message:
+      "Potential SQL injection: Using .format() or '%' operator to build SQL queries.",
     recommendation:
-      "Use parameterized queries instead of executing raw strings.",
+      "Pass variables as parameters into cursor.execute() instead.",
+  },
+
+  {
+    regex: /execute\s*\(\s*(?![ "'`\d(])\w+/gi,
+    severity: "HIGH",
+    message:
+      "Potential SQL injection: Executing a raw variable directly in database driver.",
+    recommendation:
+      "Do not pass dynamically constructed strings. Use parameterized inputs.",
   },
 ];

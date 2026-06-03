@@ -5,38 +5,42 @@ import { DetectionRule } from "../models/detectionRule";
  * Node.js buffers can expose uninitialized memory if allocated incorrectly.
  */
 export const jsBufferOverflowRules: DetectionRule[] = [
-  // Detects usage of Buffer.allocUnsafe()
   {
-    regex: /Buffer\.allocUnsafe\s*\(/gi,
+    regex: /Buffer\.allocUnsafe(?:Slow)?\s*\(/gi,
     severity: "MEDIUM",
     message:
-      "Potential buffer overflow: allocUnsafe creates uninitialized memory",
-    recommendation: "Use Buffer.alloc() instead to ensure zero-filled buffer",
+      "Unsafe buffer allocation detected. Uninitialized memory may be exposed.",
+    recommendation:
+      "Use Buffer.alloc() instead to ensure the buffer is zero-filled.",
+  },
+
+  {
+    regex: /new\s+Buffer\s*\(/gi,
+    severity: "HIGH",
+    message: "Deprecated Buffer constructor detected.",
+    recommendation:
+      "Use Buffer.alloc() for size-based allocation or Buffer.from() for strings and arrays.",
   },
 ];
 
 /**
  * Buffer Overflow detection rules for Python.
- * Standard Python is memory-safe, but the `ctypes` library
- * exposes raw C memory management which can cause overflows.
+ * Standard Python is memory-safe, but ctypes exposes raw C memory operations.
  */
 export const pythonBufferOverflowRules: DetectionRule[] = [
-  // Detects raw memory allocation
   {
-    regex: /ctypes\.create_string_buffer\s*\(/gi,
-    severity: "MEDIUM",
-    message: "Potential memory risk: ctypes exposes raw, unmanaged C memory.",
+    regex: /\b(?:ctypes\.)?create_string_buffer\s*\(/gi,
+    severity: "LOW",
+    message: "Raw C buffer allocation detected.",
     recommendation:
-      "Avoid ctypes unless strictly necessary for C integrations. Use native bytearrays.",
+      "Use native Python types unless C interoperability is required.",
   },
 
-  // Detects manual memory moving (Classic C Buffer Overflow vector)
   {
-    regex: /ctypes\.memmove\s*\(/gi,
+    regex: /\b(?:ctypes\.)?(?:memmove|memset)\s*\(/gi,
     severity: "HIGH",
-    message:
-      "Potential Buffer Overflow: memmove bypasses Python memory safety.",
+    message: "Potential unsafe memory operation detected.",
     recommendation:
-      "Do not manually move memory blocks. Rely on standard Python assignment.",
+      "Ensure memory boundaries and buffer sizes are validated before use.",
   },
 ];

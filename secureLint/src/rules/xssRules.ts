@@ -1,104 +1,81 @@
 import { DetectionRule } from "../models/detectionRule";
 
-export const jsXSSRules: DetectionRule[] = [
-  // Detects usage of innerHTML
+/**
+ * XSS and Code Injection detection rules for JavaScript and TypeScript.
+ * Targets dangerous DOM sinks and arbitrary code execution vectors.
+ */
+export const jsXssRules: DetectionRule[] = [
   {
-    regex: /\.innerHTML\s*=/gi,
+    regex: /\.(?:inner|outer)HTML\s*=|\binsertAdjacentHTML\s*\(/gi,
     severity: "MEDIUM" as const,
-    message: "Potential XSS: innerHTML assignment detected",
+    message: "Potential DOM XSS: Insecure HTML insertion sink detected.",
     recommendation:
-      "Use textContent or sanitize HTML before inserting into DOM",
+      "Use textContent/innerText instead, or sanitize the HTML string before DOM insertion.",
   },
 
-  // Detects usage of outerHTML
   {
-    regex: /\.outerHTML\s*=/gi,
-    severity: "MEDIUM" as const,
-    message: "Potential XSS: outerHTML assignment detected",
-    recommendation:
-      "Use textContent or sanitize HTML before inserting into DOM",
-  },
-
-  // Detects document.write()
-  {
-    regex: /document\.write\s*\(/gi,
+    regex: /\bdocument\.write(?:ln)?\s*\(/gi,
     severity: "HIGH" as const,
-    message: "Potential XSS: document.write() usage detected",
+    message:
+      "Potential XSS: document.write() or document.writeln() usage detected.",
     recommendation:
-      "Avoid document.write(); use DOM manipulation methods instead",
+      "Avoid document.write() methods; use modern, safe DOM manipulation tools like document.createElement().",
   },
 
-  // Detects eval()
   {
-    regex: /eval\s*\(/gi,
+    regex: /\beval\s*\(|\bnew\s+Function\s*\(/gi,
     severity: "HIGH" as const,
-    message: "Potential XSS: eval() usage detected",
-    recommendation: "Avoid eval(); use safer alternatives like JSON.parse()",
-  },
-
-  // Detects setTimeout with strings
-  // Example:
-  // setTimeout("alert('XSS')", 1000)
-  {
-    regex: /setTimeout\s*\(\s*["'`]/gi,
-    severity: "MEDIUM" as const,
-    message: "Potential XSS: String-based setTimeout detected",
-    recommendation: "Pass function references instead of strings to setTimeout",
-  },
-
-  // Detects setInterval with strings
-  {
-    regex: /setInterval\s*\(\s*["'`]/gi,
-    severity: "MEDIUM" as const,
-    message: "Potential XSS: String-based setInterval detected",
+    message:
+      "Critical Code Injection risk: Dynamic code execution via eval() or new Function().",
     recommendation:
-      "Pass function references instead of strings to setInterval",
+      "Avoid arbitrary code evaluation. Use safer alternatives like JSON.parse() for data parsing.",
   },
 
-  // Detects dangerouslySetInnerHTML in React
   {
-    regex: /dangerouslySetInnerHTML/gi,
+    regex: /\bset(?:Timeout|Interval)\s*\(\s*["'`]/gi,
     severity: "MEDIUM" as const,
-    message: "Potential XSS: dangerouslySetInnerHTML usage detected",
+    message: "Potential XSS: String-based execution inside timer function.",
     recommendation:
-      "Sanitize content before using dangerouslySetInnerHTML in React",
+      "Pass actual function references instead of evaluation strings to timer functions.",
+  },
+
+  {
+    regex: /\bdangerouslySetInnerHTML\b/gi,
+    severity: "MEDIUM" as const,
+    message: "Potential XSS: React dangerouslySetInnerHTML attribute detected.",
+    recommendation:
+      "Ensure all content passed to dangerouslySetInnerHTML is sanitized.",
   },
 ];
 
-export const pythonXSSRules: DetectionRule[] = [
-  // Detects eval()
+/**
+ * XSS and Server-Side Injection detection rules for Python templates and code execution.
+ */
+export const pythonXssRules: DetectionRule[] = [
   {
-    regex: /(?<![\w\.])eval\s*\(/gi,
+    regex: /\b(?:eval|exec)\s*\(/gi,
     severity: "HIGH" as const,
-    message: "Potential XSS: eval() usage detected",
-    recommendation: "Avoid eval(); use ast.literal_eval() for safe evaluation.",
-  },
-
-  // Detects exec()
-  {
-    regex: /(?<![\w\.])exec\s*\(/gi,
-    severity: "HIGH" as const,
-    message: "Potential XSS: exec() usage detected",
+    message:
+      "Critical Code Injection risk: Arbitrary Python code execution via eval() or exec().",
     recommendation:
-      "Avoid exec(); it executes arbitrary strings as Python code.",
+      "Avoid dynamic execution of untrusted strings. Use ast.literal_eval() if parsing literals is required.",
   },
 
-  // Detects Jinja2/Django safe filters which bypass XSS protections
-  // Example: {{ user_input | safe }}
   {
     regex: /\|\s*safe\b/gi,
     severity: "MEDIUM" as const,
-    message: 'Potential XSS: Usage of "|safe" filter detected in template.',
+    message:
+      "Potential XSS: The '|safe' filter explicitly bypasses template auto-escaping protections.",
     recommendation:
-      'Ensure the variable passed to "|safe" is strictly sanitized.',
+      "Ensure that any variable passed through the '|safe' filter has been properly validated or sanitized.",
   },
 
-  // Detects Django's mark_safe()
   {
-    regex: /mark_safe\s*\(/gi,
+    regex: /\b(?:mark_safe|Markup|SafeString|SafeText)\s*\(/gi,
     severity: "MEDIUM" as const,
-    message: "Potential XSS: Usage of mark_safe() detected.",
+    message:
+      "Potential XSS: Disabling template HTML escaping programmatically.",
     recommendation:
-      "Ensure the content passed to mark_safe() is strictly sanitized.",
+      "Verify that inputs passed into auto-escape bypass utilities are sanitized beforehand.",
   },
 ];
